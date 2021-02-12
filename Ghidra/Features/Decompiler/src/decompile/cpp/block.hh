@@ -699,7 +699,7 @@ public:
   virtual void printHeader(ostream &s) const;
   virtual void emit(PrintLanguage *lng) const { lng->emitBlockSwitch(this); }
   virtual FlowBlock *nextFlowAfter(const FlowBlock *bl) const;
-  virtual void finalizePrinting(const Funcdata &data) const;
+  virtual void finalizePrinting(Funcdata &data) const;
   virtual int4 getBlockDepth(void);
 };
 
