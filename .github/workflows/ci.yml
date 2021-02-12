@@ -9,10 +9,13 @@ jobs:
     name: Check for new commits since last release
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: suicidesquad1337/ghidra
       - name: Check for new commits
         id: check
         run: |
-          LAST_REL_NAME=$(curl --silent "https://api.github.com/repos/suicidesquad1337/ghidra/releases/latest" | jq .name)
+          LAST_REL_NAME=$(curl --silent "https://api.github.com/repos/${{github.repository}}/releases/latest" | jq .name)
           LAST_REL_COMMITID=$(echo $LAST_REL_NAME | grep -oP "\(\K\w+(?=\))")
           COMMIT_HASH_SHORT=$(git rev-parse --short HEAD)
           COMMIT_HASH_LONG=$(git rev-parse HEAD)
