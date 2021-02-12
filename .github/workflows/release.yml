@@ -1,0 +1,164 @@
+name: Release Ghidra
+on:
+  push:
+    branches:
+      - batteries-included
+
+jobs:
+  build-windows:
+    name: Build Windows Binaries
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: suicidesquad1337/ghidra
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Install bison
+        run: |
+          choco install winflexbison
+          ren "C:\ProgramData\chocolatey\bin\win_bison.exe" "bison.exe"
+          ren "C:\ProgramData\chocolatey\bin\win_flex.exe" "flex.exe"
+      - uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: --init-script gradle/support/fetchDependencies.gradle init
+      - uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: buildNatives_win64
+      - name: Upload Windows compilation output.
+        uses: actions/upload-artifact@v2
+        with:
+          name: natives-windows
+          path: "**/build/os/win64/"
+
+  build-macos:
+    name: Build MacOS Binaries
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: suicidesquad1337/ghidra
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: --init-script gradle/support/fetchDependencies.gradle init
+      - uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: buildNatives_osx64
+      - name: Upload MacOS compilation output.
+        uses: actions/upload-artifact@v2
+        with:
+          name: natives-macos
+          path: "**/build/os/osx64/"
+
+  build-linux:
+    name: Build Linux binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: suicidesquad1337/Ghidra
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: --init-script gradle/support/fetchDependencies.gradle init
+      - uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: buildNatives_linux64
+      - name: Upload Linux compilation output.
+        uses: actions/upload-artifact@v2
+        with:
+          name: natives-linux
+          path: "**/build/os/linux64/"
+
+  dist:
+    name: "Build Ghidra distributable zip"
+    needs: ["build-windows", "build-macos", "build-linux"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: suicidesquad1337/ghidra
+      - name: Download windows binaries
+        uses: actions/download-artifact@v2
+        with:
+          name: natives-windows
+      - name: Download MacOS binaries
+        uses: actions/download-artifact@v2
+        with:
+          name: natives-macos
+      - name: Download Linux binaries
+        uses: actions/download-artifact@v2
+        with:
+          name: natives-linux
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Fetch the Ghidra dependencies.
+        uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: --init-script gradle/support/fetchDependencies.gradle init
+      # TODO: Pre-build GhidraDev
+      - name: Checkout ghidra-data
+        uses: actions/checkout@v2
+        with:
+          repository: NationalSecurityAgency/ghidra-data
+          path: 'ghidra-data'
+      - name: Copy ghidra-data files into the appropriate directories
+        run: cp -r ghidra-data/FunctionID/* Ghidra/Features/FunctionID/data
+      - name: Build ghidra, create a cross-platform distribution
+        uses: eskatos/gradle-command-action@v1
+        with:
+          gradle-version: current
+          arguments: -x ip -PallPlatforms buildGhidra
+      # TODO: remove upload-artifact when create release is sure to work
+      - name: Upload final dist
+        uses: actions/upload-artifact@v2
+        with:
+          path: "build/dist/*"
+      - name: Remove temporary artifacts
+        uses: geekyeggo/delete-artifact@v1
+        with:
+          name: |
+            natives-windows
+            natives-macos
+            natives-linux
+      - name: Get current date, rev and dist name
+        id: date
+        run: |
+          echo ::set-output name=date::$(date +'%Y-%m-%d')
+          echo ::set-output name=dist::$(ls build/dist)
+          echo ::set-output name=rev::$(git rev-parse --short HEAD)
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.date.outputs.date }}
+          release_name: Release ${{ steps.date.outputs.date }}(${{ steps.date.outputs.rev }})
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/dist/${{ steps.date.outputs.dist }}
+          asset_name: release.zip
+          asset_content_type: application/zip
+
