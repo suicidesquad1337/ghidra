@@ -1,4 +1,4 @@
-me: Release Ghidra
+name: Release Ghidra
 on:
   pull_request:
   push:
