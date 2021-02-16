@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           - { task: osx64,   os: macos-latest,   dist: natives-macos }
-          - { task: win64,   os: windows-latest, dist: natives-win }
+          - { task: win64,   os: windows-latest, dist: natives-windows }
           - { task: linux64, os: ubuntu-latest,  dist: natives-linux }
 
     steps:
